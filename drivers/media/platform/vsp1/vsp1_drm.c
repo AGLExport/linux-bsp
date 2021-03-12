@@ -79,6 +79,8 @@ static void vsp1_du_pipeline_frame_end(struct vsp1_pipeline *pipe,
 		drm_pipe->force_brx_release = false;
 		wake_up(&drm_pipe->wait_queue);
 	}
+
+	drm_pipe->commited_dl = NULL;
 }
 
 /* -----------------------------------------------------------------------------
@@ -575,7 +577,9 @@ static void vsp1_du_pipeline_configure(struct vsp1_pipeline *pipe)
 	if (pipe->output->writeback)
 		dl_flags |= VSP1_DL_FRAME_END_WRITEBACK;
 
-	dl = vsp1_dl_list_get(pipe->output->dlm);
+	if (!drm_pipe->commited_dl)
+		drm_pipe->commited_dl = vsp1_dl_list_get(pipe->output->dlm);
+	dl = drm_pipe->commited_dl;
 	dlb = vsp1_dl_list_get_body0(dl);
 
 	list_for_each_entry_safe(entity, next, &pipe->entities, list_pipe) {

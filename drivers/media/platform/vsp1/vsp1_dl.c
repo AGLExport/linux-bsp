@@ -199,6 +199,7 @@ struct vsp1_dl_list {
 	struct list_head chain;
 
 	unsigned int flags;
+	bool commited;
 };
 
 /**
@@ -618,6 +619,7 @@ struct vsp1_dl_list *vsp1_dl_list_get(struct vsp1_dl_manager *dlm)
 		 * display list can assert list_empty() if it is not in a chain.
 		 */
 		INIT_LIST_HEAD(&dl->chain);
+		dl->commited = false;
 	}
 
 	spin_unlock_irqrestore(&dlm->lock, flags);
@@ -888,8 +890,10 @@ static void vsp1_dl_list_commit_continuous(struct vsp1_dl_list *dl)
 	if (vsp1_dl_list_hw_update_pending(dlm)) {
 		WARN_ON(dlm->pending &&
 			(dlm->pending->flags & VSP1_DL_FRAME_END_INTERNAL));
-		__vsp1_dl_list_put(dlm->pending);
-		dlm->pending = dl;
+		if (!dl->commited) {
+			__vsp1_dl_list_put(dlm->pending);
+			dlm->pending = dl;
+		}
 		return;
 	}
 
@@ -899,8 +903,10 @@ static void vsp1_dl_list_commit_continuous(struct vsp1_dl_list *dl)
 	 */
 	vsp1_dl_list_hw_enqueue(dl);
 
-	__vsp1_dl_list_put(dlm->queued);
-	dlm->queued = dl;
+	if (!dl->commited) {
+		__vsp1_dl_list_put(dlm->queued);
+		dlm->queued = dl;
+	}
 }
 
 static void vsp1_dl_list_commit_singleshot(struct vsp1_dl_list *dl)
@@ -914,7 +920,8 @@ static void vsp1_dl_list_commit_singleshot(struct vsp1_dl_list *dl)
 	 */
 	vsp1_dl_list_hw_enqueue(dl);
 
-	dlm->active = dl;
+	if (!dl->commited)
+		dlm->active = dl;
 }
 
 void vsp1_dl_list_commit(struct vsp1_dl_list *dl, unsigned int dl_flags)
@@ -941,6 +948,7 @@ void vsp1_dl_list_commit(struct vsp1_dl_list *dl, unsigned int dl_flags)
 	else
 		vsp1_dl_list_commit_continuous(dl);
 
+	dl->commited = true;
 	spin_unlock_irqrestore(&dlm->lock, flags);
 }
 
