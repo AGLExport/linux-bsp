@@ -30,6 +30,7 @@
 #include "rcar_du_kms.h"
 #include "rcar_du_vsp.h"
 #include "rcar_du_writeback.h"
+#include "rcar_du_vdrm.h"
 
 static void rcar_du_vsp_complete(void *private, unsigned int status, u32 crc)
 {
@@ -44,6 +45,8 @@ static void rcar_du_vsp_complete(void *private, unsigned int status, u32 crc)
 		rcar_du_writeback_complete(crtc);
 
 	drm_crtc_add_crc_entry(&crtc->crtc, false, 0, &crc);
+
+	rcar_du_vdrm_crtc_complete(crtc, status);
 }
 
 void rcar_du_vsp_enable(struct rcar_du_crtc *crtc)
@@ -559,6 +562,8 @@ int rcar_du_vsp_init(struct rcar_du_vsp *vsp, struct device_node *np,
 	unsigned int num_crtcs = hweight32(crtcs);
 	unsigned int i;
 	int ret;
+	int num_vdrms;
+	int vdrm_index = 0;
 
 	/* Find the VSP device and initialize it. */
 	pdev = of_find_device_by_node(np);
@@ -581,6 +586,8 @@ int rcar_du_vsp_init(struct rcar_du_vsp *vsp, struct device_node *np,
 	  */
 	vsp->num_planes = rcdu->info->gen >= 3 ? 5 : 4;
 
+	num_vdrms = rcar_du_vdrm_count(rcdu);
+
 	vsp->planes = devm_kcalloc(rcdu->dev, vsp->num_planes,
 				   sizeof(*vsp->planes), GFP_KERNEL);
 	if (!vsp->planes)
@@ -594,6 +601,21 @@ int rcar_du_vsp_init(struct rcar_du_vsp *vsp, struct device_node *np,
 
 		plane->vsp = vsp;
 		plane->index = i;
+
+		if (i >= num_planes - num_vdrms) {
+			ret = rcar_du_vdrm_plane_init(rcdu->vdrms[vdrm_index],
+						plane,
+						&rcar_du_vsp_plane_funcs,
+						&rcar_du_vsp_plane_helper_funcs,
+						rcar_du_vsp_formats,
+						ARRAY_SIZE(rcar_du_vsp_formats),
+						num_planes - 1);
+			if (ret < 0)
+				return ret;
+
+			vdrm_index++;
+			continue;
+		}
 
 		/* Fix possible crtcs for plane when using VSPDL */
 		if (rcdu->vspdl_fix && vsp->index == VSPDL_CH) {
