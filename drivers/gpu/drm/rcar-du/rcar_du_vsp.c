@@ -602,14 +602,14 @@ int rcar_du_vsp_init(struct rcar_du_vsp *vsp, struct device_node *np,
 		plane->vsp = vsp;
 		plane->index = i;
 
-		if (i >= num_planes - num_vdrms) {
+		if (i >= vsp->num_planes - num_vdrms) {
 			ret = rcar_du_vdrm_plane_init(rcdu->vdrms[vdrm_index],
 						plane,
 						&rcar_du_vsp_plane_funcs,
 						&rcar_du_vsp_plane_helper_funcs,
 						rcar_du_vsp_formats,
 						ARRAY_SIZE(rcar_du_vsp_formats),
-						num_planes - 1);
+						vsp->num_planes - 1);
 			if (ret < 0)
 				return ret;
 

@@ -107,7 +107,7 @@ int rcar_du_vdrms_init(struct rcar_du_device *rcdu)
 			goto err;
 		}
 
-		vdrm = vdrm_drv_init(&rcdu->ddev, args.np, 0, NULL,
+		vdrm = vdrm_drv_init(rcdu->ddev, args.np, 0, NULL,
 				     &vdrm_funcs);
 		of_node_put(args.np);
 		if (IS_ERR(vdrm)) {
