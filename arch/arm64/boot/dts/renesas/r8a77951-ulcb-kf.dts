@@ -17,3 +17,20 @@
 
 /* use CN11 instead default CN29/CN48 (H3 only) */
 //#include "ulcb-kf-cn11.dtsi"
+
+&soc {
+	vdrm0: vdrm@0 {
+		compatible = "virt-drm";
+		plane@0 {
+			x = <0>;
+			y = <0>;
+			width = <800>;
+			height = <600>;
+			zpos = <1>;
+		};
+	};
+};
+
+&du {
+	vdrms = <&vdrm0>;
+};

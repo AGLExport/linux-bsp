@@ -89,8 +89,21 @@
 		clock-frequency = <33000000>;
 	};
 };
+&soc {
+	vdrm0: vdrm@0 {
+		compatible = "virt-drm";
+		plane@0 {
+			x = <0>;
+			y = <0>;
+			width = <800>;
+			height = <600>;
+			zpos = <1>;
+		};
+	};
+};
 
 &du {
+	vdrms = <&vdrm0>;
 	clocks = <&cpg CPG_MOD 724>,
 		 <&cpg CPG_MOD 723>,
 		 <&cpg CPG_MOD 722>,
