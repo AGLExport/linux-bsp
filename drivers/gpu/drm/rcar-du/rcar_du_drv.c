@@ -685,11 +685,6 @@ static int rcar_du_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	/* Initialize the vDRM device */
-	ret = rcar_du_vdrms_init(rcdu);
-	if (ret < 0)
-		return ret;
-
 	/* DRM/KMS objects */
 	ddev = drm_dev_alloc(&rcar_du_driver, &pdev->dev);
 	if (IS_ERR(ddev))
@@ -697,6 +692,11 @@ static int rcar_du_probe(struct platform_device *pdev)
 
 	rcdu->ddev = ddev;
 	ddev->dev_private = rcdu;
+
+	/* Initialize the vDRM device */
+	ret = rcar_du_vdrms_init(rcdu);
+	if (ret < 0)
+		return ret;
 
 	ret = rcar_du_modeset_init(rcdu);
 	if (ret < 0) {
