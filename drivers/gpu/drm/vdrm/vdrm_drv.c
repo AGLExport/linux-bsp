@@ -642,6 +642,7 @@ struct vdrm_device *vdrm_drv_init(struct drm_device *dev,
 	vdrm_driver.gem_prime_import_sg_table =
 		dev->driver->gem_prime_import_sg_table;
 	vdrm_driver.gem_prime_mmap = dev->driver->gem_prime_mmap;
+	vdrm_driver.gem_vm_ops = dev->driver->gem_vm_ops;
 
 	vdrm = devm_drm_dev_alloc(dev->dev, &vdrm_driver, struct vdrm_device,
 				  ddev);
