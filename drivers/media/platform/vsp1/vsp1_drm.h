@@ -44,6 +44,8 @@ struct vsp1_drm_pipeline {
 	/* Frame synchronisation */
 	void (*du_complete)(void *data, unsigned int status, u32 crc);
 	void *du_private;
+
+	struct vsp1_dl_list *commited_dl;
 };
 
 /**
