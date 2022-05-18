@@ -401,7 +401,11 @@ static int rcar_gen3_thermal_probe(struct platform_device *pdev)
 {
 	struct rcar_gen3_thermal_priv *priv;
 	struct device *dev = &pdev->dev;
+<<<<<<< HEAD
 	const int *rcar_gen3_ths_tj_1_const = of_device_get_match_data(dev);
+=======
+	const int *ths_tj_1 = of_device_get_match_data(dev);
+>>>>>>> upstream/linux-5.10.y
 	struct resource *res;
 	struct thermal_zone_device *zone;
 	unsigned int i;
