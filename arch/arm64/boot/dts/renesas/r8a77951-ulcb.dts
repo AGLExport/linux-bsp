@@ -45,6 +45,7 @@
 			no-map;
 			reg = <0x00000000 0x54000000 0x0 0x03000000>;
 		};
+		/* When the lossy area remove from dtb,  you must change bl2 to remove lossy area.*/
 
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma@57000000 {
@@ -60,11 +61,23 @@
 			reusable;
 			reg = <0x00000000 0x70000000 0x0 0x10000000>;
 		};
+
+		/* phram node */
+		phram0: linux,phram@700000000 {
+			no-map;
+			reg = <0x00000007 0x00000000 0x0 0x04000000>;
+		};
+
+		phram1: linux,phram@704000000 {
+			no-map;
+			reg = <0x00000007 0x04000000 0x0 0x08000000>;
+		};
+
 	};
 
 	mmngr {
 		compatible = "renesas,mmngr";
-		memory-region = <&mmp_reserved>, <&lossy_decompress>;
+		memory-region = <&mmp_reserved>;
 	};
 
 	mmngrbuf {
