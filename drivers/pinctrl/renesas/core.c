@@ -218,6 +218,31 @@ static void sh_pfc_config_reg_helper(struct sh_pfc *pfc,
 	}
 }
 
+//test
+#include <linux/arm-smccc.h>
+#define	ARM_SMCC_RCAR_BSP		16u
+#define	RCAR_BSP_SVC_LOCKED_REGSET_LINUX	0x03000501u/*TODO*/
+/*#define RCAR_BSP_SMC_CALL_VAL(func_num) \
+	ARM_SMCCC_CALL_VAL(ARM_SMCCC_STD_CALL, ARM_SMCCC_SMC_64, \
+	ARM_SMCC_RCAR_BSP, (func_num))*/
+#define RCAR_BSP_SMC_CALL_VAL(func_num) \
+	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_64, \
+	ARM_SMCC_RCAR_BSP, (func_num))
+
+int test_sh_pfc_smccall(u32 regaddr, u32 mask, u32 value)
+{
+	struct arm_smccc_res res;
+	int ret = -1;
+
+	arm_smccc_smc(RCAR_BSP_SMC_CALL_VAL(RCAR_BSP_SVC_LOCKED_REGSET_LINUX)
+				, regaddr, mask, value, 0, 0, 0, 0, &res);
+	if (res.a0 == 0)
+		ret = 0;
+
+	return ret;
+}
+//test
+
 static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 				    const struct pinmux_cfg_reg *crp,
 				    unsigned int field, u32 value)
@@ -225,6 +250,7 @@ static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 	void __iomem *mapped_reg;
 	unsigned int pos;
 	u32 mask, data;
+	int ret = -1;
 
 	sh_pfc_config_reg_helper(pfc, crp, field, &mapped_reg, &mask, &pos);
 
@@ -235,12 +261,16 @@ static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 	mask = ~(mask << pos);
 	value = value << pos;
 
-	data = sh_pfc_read_raw_reg(mapped_reg, crp->reg_width);
-	data &= mask;
-	data |= value;
+	ret = test_sh_pfc_smccall(crp->reg, mask, value);
+	if (ret < 0) {
+		data = sh_pfc_read_raw_reg(mapped_reg, crp->reg_width);
+		data &= mask;
+		data |= value;
 
-	sh_pfc_unlock_reg(pfc, crp->reg, data);
-	sh_pfc_write_raw_reg(mapped_reg, crp->reg_width, data);
+		sh_pfc_unlock_reg(pfc, crp->reg, data);
+		sh_pfc_write_raw_reg(mapped_reg, crp->reg_width, data);
+	}
+	//test_sh_pfc_smccall(crp->reg, mask, value);
 }
 
 static int sh_pfc_get_config_reg(struct sh_pfc *pfc, u16 enum_id,
