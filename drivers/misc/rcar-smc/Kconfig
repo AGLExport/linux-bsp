@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config RCAR_SMC
+	bool "Support R-Car BSP SMCs"
+	default n
+	depends on ARCH_RENESAS
+	depends on (ARCH_R8A77950 || ARCH_R8A77951 || ARCH_R8A77960 || ARCH_R8A77961)
+	help
+	  A r-car smc is supporting misc feature for AMP system.  This fearture
+	  is depend to helper function of arm trusted firmware.
+
+if RCAR_SMC
+
+comment "Helpers"
+
+config RCAR_SMC_PFC
+	bool "PFC helper support"
+	default y
+	help
+	  PFC helper SMC call support.
+
+endif
+
