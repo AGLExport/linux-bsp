@@ -25,6 +25,8 @@
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
 
+#include <misc/rcar-smc/rcar-smc.h>
+
 #include "core.h"
 
 static int sh_pfc_map_resources(struct sh_pfc *pfc,
@@ -218,31 +220,6 @@ static void sh_pfc_config_reg_helper(struct sh_pfc *pfc,
 	}
 }
 
-//test
-#include <linux/arm-smccc.h>
-#define	ARM_SMCC_RCAR_BSP		16u
-#define	RCAR_BSP_SVC_LOCKED_REGSET_LINUX	0x03000501u/*TODO*/
-/*#define RCAR_BSP_SMC_CALL_VAL(func_num) \
-	ARM_SMCCC_CALL_VAL(ARM_SMCCC_STD_CALL, ARM_SMCCC_SMC_64, \
-	ARM_SMCC_RCAR_BSP, (func_num))*/
-#define RCAR_BSP_SMC_CALL_VAL(func_num) \
-	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_64, \
-	ARM_SMCC_RCAR_BSP, (func_num))
-
-int test_sh_pfc_smccall(u32 regaddr, u32 mask, u32 value)
-{
-	struct arm_smccc_res res;
-	int ret = -1;
-
-	arm_smccc_smc(RCAR_BSP_SMC_CALL_VAL(RCAR_BSP_SVC_LOCKED_REGSET_LINUX)
-				, regaddr, mask, value, 0, 0, 0, 0, &res);
-	if (res.a0 == 0)
-		ret = 0;
-
-	return ret;
-}
-//test
-
 static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 				    const struct pinmux_cfg_reg *crp,
 				    unsigned int field, u32 value)
@@ -261,8 +238,9 @@ static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 	mask = ~(mask << pos);
 	value = value << pos;
 
-	ret = test_sh_pfc_smccall(crp->reg, mask, value);
-	if (ret < 0) {
+	ret = rcar_smc_locked_regbit_change(crp->reg, mask, value);
+	if (ret == -1) {
+		// for non support.
 		data = sh_pfc_read_raw_reg(mapped_reg, crp->reg_width);
 		data &= mask;
 		data |= value;
@@ -270,7 +248,6 @@ static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 		sh_pfc_unlock_reg(pfc, crp->reg, data);
 		sh_pfc_write_raw_reg(mapped_reg, crp->reg_width, data);
 	}
-	//test_sh_pfc_smccall(crp->reg, mask, value);
 }
 
 static int sh_pfc_get_config_reg(struct sh_pfc *pfc, u16 enum_id,
@@ -673,6 +650,9 @@ static const struct of_device_id sh_pfc_of_table[] = {
 #endif
 
 #if defined(CONFIG_PM_SLEEP) && defined(CONFIG_ARM_PSCI_FW)
+#ifdef CONFIG_RCAR_SMC
+#error When RCAR_SMC is enabled, must be disable CONFIG_PM_SLEEP.
+#endif
 static void sh_pfc_nop_reg(struct sh_pfc *pfc, u32 reg, unsigned int idx)
 {
 }
