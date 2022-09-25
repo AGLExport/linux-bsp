@@ -19,5 +19,11 @@ config RCAR_SMC_PFC
 	help
 	  PFC helper SMC call support.
 
+config RCAR_SMC_CPG
+	bool "CPG helper support"
+	default y
+	help
+	  CPG helper SMC call support.
+
 endif
 

@@ -238,7 +238,7 @@ static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 	mask = ~(mask << pos);
 	value = value << pos;
 
-	ret = rcar_smc_locked_regbit_change(crp->reg, mask, value);
+	ret = rcar_smc_locked_regbit_change_pfc(crp->reg, mask, value);
 	if (ret == -1) {
 		// for non support.
 		data = sh_pfc_read_raw_reg(mapped_reg, crp->reg_width);

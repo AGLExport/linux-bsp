@@ -14,8 +14,14 @@
 #define	RCAR_BSP_SVC_UID					(0xff01u)
 #define	RCAR_BSP_SVC_VERSION				(0xff03u)
 
-#define	RCAR_BSP_SVC_LOCKED_REGSET_LINUX	(0x0501u)
-#define	RCAR_BSP_SVC_LOCKED_REGSET_RTOS1	(0x0502u)
+#define	RCAR_BSP_SVC_LOCKED_REGSET_PFC_LINUX	(0x0501u)
+#define	RCAR_BSP_SVC_LOCKED_REGSET_PFC_RTOS1	(0x0502u)
+
+#define	RCAR_BSP_SVC_LOCKED_REGSET_CPG_LINUX	(0x0503u)
+#define	RCAR_BSP_SVC_LOCKED_REGSET_CPG_RTOS1	(0x0504u)
+
+#define	RCAR_BSP_SVC_AUDIT_REGWRITE_CPG_LINUX	(0x0505u)
+#define	RCAR_BSP_SVC_AUDIT_REGWRITE_CPG_RTOS1	(0x0506u)
 
 
 #define RCAR_BSP_SMC_CALL_VAL(func_num) \
@@ -31,10 +37,10 @@
 static int rcar_smc_atf_support = 0;
 
 /*
- * locked regster bit change healper
+ * locked regster bit change healper for pfc
  */
 #ifdef CONFIG_RCAR_SMC_PFC
-int rcar_smc_locked_regbit_change(uint32_t regaddr, uint32_t mask, uint32_t value)
+int rcar_smc_locked_regbit_change_pfc(uint32_t regaddr, uint32_t mask, uint32_t value)
 {
 	struct arm_smccc_res res;
 	int ret = -2;
@@ -44,7 +50,7 @@ int rcar_smc_locked_regbit_change(uint32_t regaddr, uint32_t mask, uint32_t valu
 
 	memset(&res, 0, sizeof(res));
 
-	arm_smccc_smc(RCAR_BSP_SMC_CALL_VAL(RCAR_BSP_SVC_LOCKED_REGSET_LINUX)
+	arm_smccc_smc(RCAR_BSP_SMC_CALL_VAL(RCAR_BSP_SVC_LOCKED_REGSET_PFC_LINUX)
 				, regaddr, mask, value, 0, 0, 0, 0, &res);
 
 	if (res.a0 == 0)
@@ -53,12 +59,73 @@ int rcar_smc_locked_regbit_change(uint32_t regaddr, uint32_t mask, uint32_t valu
 	return ret;
 }
 #else
-int rcar_smc_locked_regbit_change(uint32_t regaddr, uint32_t mask, uint32_t value)
+int rcar_smc_locked_regbit_change_pfc(uint32_t regaddr, uint32_t mask, uint32_t value)
 {
 	return -1;	//SMC helper is not support.
 }
 #endif //#ifdef CONFIG_RCAR_SMC_PFC
-EXPORT_SYMBOL(rcar_smc_locked_regbit_change);
+EXPORT_SYMBOL(rcar_smc_locked_regbit_change_pfc);
+
+/*
+ * locked regster bit change healper for cpg
+ */
+#ifdef CONFIG_RCAR_SMC_CPG
+int rcar_smc_locked_regbit_change_cpg(uint32_t regaddr, uint32_t mask, uint32_t value)
+{
+	struct arm_smccc_res res;
+	int ret = -2;
+
+	if (rcar_smc_atf_support == 0)
+		return -1;	//SMC helper is not support in ATF
+
+	memset(&res, 0, sizeof(res));
+
+	arm_smccc_smc(RCAR_BSP_SMC_CALL_VAL(RCAR_BSP_SVC_LOCKED_REGSET_CPG_LINUX)
+				, regaddr, mask, value, 0, 0, 0, 0, &res);
+
+	if (res.a0 == 0)
+		ret = 0;
+
+	return ret;
+}
+#else
+int rcar_smc_locked_regbit_change_cpg(uint32_t regaddr, uint32_t mask, uint32_t value)
+{
+	return -1;	//SMC helper is not support.
+}
+#endif //#ifdef CONFIG_RCAR_SMC_PFC
+EXPORT_SYMBOL(rcar_smc_locked_regbit_change_cpg);
+
+/*
+ * audit regster write healper for cpg
+ */
+#ifdef CONFIG_RCAR_SMC_CPG
+int rcar_smc_audit_regwrite_cpg(uint32_t regaddr, uint32_t value)
+{
+	struct arm_smccc_res res;
+	int ret = -2;
+
+	if (rcar_smc_atf_support == 0)
+		return -1;	//SMC helper is not support in ATF
+
+	memset(&res, 0, sizeof(res));
+
+	arm_smccc_smc(RCAR_BSP_SMC_CALL_VAL(RCAR_BSP_SVC_AUDIT_REGWRITE_CPG_LINUX)
+				, regaddr, value, 0, 0, 0, 0, 0, &res);
+
+	if (res.a0 == 0)
+		ret = 0;
+
+	return ret;
+}
+#else
+int rcar_smc_audit_regwrite_cpg(uint32_t regaddr, uint32_t value)
+{
+	return -1;	//SMC helper is not support.
+}
+#endif //#ifdef CONFIG_RCAR_SMC_PFC
+EXPORT_SYMBOL(rcar_smc_audit_regwrite_cpg);
+
 
 
 /*
