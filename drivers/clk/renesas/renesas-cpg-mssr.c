@@ -30,6 +30,8 @@
 
 #include <dt-bindings/clock/renesas-cpg-mssr.h>
 
+#include <misc/rcar-smc/rcar-smc.h>
+
 #include "renesas-cpg-mssr.h"
 #include "clk-div6.h"
 
@@ -146,6 +148,9 @@ struct cpg_mssr_priv {
 #endif
 	struct device *dev;
 	void __iomem *base;
+#ifdef CONFIG_RCAR_SMC_CPG
+	uintptr_t phybase;
+#endif
 	enum clk_reg_layout reg_layout;
 	spinlock_t rmw_lock;
 	struct device_node *np;
@@ -194,6 +199,8 @@ static int cpg_mstp_clock_endisable(struct clk_hw *hw, bool enable)
 	unsigned long flags;
 	unsigned int i;
 	u32 value;
+	int ret = -1;
+	uintptr_t phywaddr = 0;
 
 	dev_dbg(dev, "MSTP %u%02u/%pC %s\n", reg, bit, hw->clk,
 		enable ? "ON" : "OFF");
@@ -211,12 +218,21 @@ static int cpg_mstp_clock_endisable(struct clk_hw *hw, bool enable)
 		readb(priv->base + priv->control_regs[reg]);
 		barrier_data(priv->base + priv->control_regs[reg]);
 	} else {
-		value = readl(priv->base + priv->control_regs[reg]);
+		phywaddr = priv->phybase + (uintptr_t)priv->control_regs[reg];
 		if (enable)
-			value &= ~bitmask;
+			value = 0;
 		else
-			value |= bitmask;
-		writel(value, priv->base + priv->control_regs[reg]);
+			value = bitmask;
+
+		ret = rcar_smc_locked_regbit_change_cpg(phywaddr, ~bitmask, value);
+		if (ret == -1) {
+			value = readl(priv->base + priv->control_regs[reg]);
+			if (enable)
+				value &= ~bitmask;
+			else
+				value |= bitmask;
+			writel(value, priv->base + priv->control_regs[reg]);
+		}
 	}
 
 	spin_unlock_irqrestore(&priv->rmw_lock, flags);
@@ -596,17 +612,25 @@ static int cpg_mssr_reset(struct reset_controller_dev *rcdev,
 	unsigned int reg = id / 32;
 	unsigned int bit = id % 32;
 	u32 bitmask = BIT(bit);
+	int ret = -1;
+	uintptr_t phywaddr = 0;
 
 	dev_dbg(priv->dev, "reset %u%02u\n", reg, bit);
 
 	/* Reset module */
-	writel(bitmask, priv->base + priv->reset_regs[reg]);
+	phywaddr = priv->phybase + (uintptr_t)priv->control_regs[reg];
+	ret = rcar_smc_audit_regwrite_cpg(phywaddr, bitmask);
+	if (ret == -1)
+		writel(bitmask, priv->base + priv->reset_regs[reg]);
 
 	/* Wait for at least one cycle of the RCLK clock (@ ca. 32 kHz) */
 	udelay(35);
 
 	/* Release module from reset state */
-	writel(bitmask, priv->base + priv->reset_clear_regs[reg]);
+	phywaddr = priv->phybase + (uintptr_t)priv->reset_clear_regs[reg];
+	ret = rcar_smc_audit_regwrite_cpg(phywaddr, bitmask);
+	if (ret == -1)
+		writel(bitmask, priv->base + priv->reset_clear_regs[reg]);
 
 	return 0;
 }
@@ -617,10 +641,16 @@ static int cpg_mssr_assert(struct reset_controller_dev *rcdev, unsigned long id)
 	unsigned int reg = id / 32;
 	unsigned int bit = id % 32;
 	u32 bitmask = BIT(bit);
+	int ret = -1;
+	uintptr_t phywaddr = 0;
 
 	dev_dbg(priv->dev, "assert %u%02u\n", reg, bit);
 
-	writel(bitmask, priv->base + priv->reset_regs[reg]);
+	phywaddr = priv->phybase + (uintptr_t)priv->control_regs[reg];
+	ret = rcar_smc_audit_regwrite_cpg(phywaddr, bitmask);
+	if (ret == -1)
+		writel(bitmask, priv->base + priv->reset_regs[reg]);
+
 	return 0;
 }
 
@@ -631,10 +661,16 @@ static int cpg_mssr_deassert(struct reset_controller_dev *rcdev,
 	unsigned int reg = id / 32;
 	unsigned int bit = id % 32;
 	u32 bitmask = BIT(bit);
+	int ret = -1;
+	uintptr_t phywaddr = 0;
 
 	dev_dbg(priv->dev, "deassert %u%02u\n", reg, bit);
 
-	writel(bitmask, priv->base + priv->reset_clear_regs[reg]);
+	phywaddr = priv->phybase + (uintptr_t)priv->reset_clear_regs[reg];
+	ret = rcar_smc_audit_regwrite_cpg(phywaddr, bitmask);
+	if (ret == -1)
+		writel(bitmask, priv->base + priv->reset_clear_regs[reg]);
+
 	return 0;
 }
 
@@ -841,6 +877,9 @@ static void cpg_mssr_del_clk_provider(void *data)
 }
 
 #if defined(CONFIG_PM_SLEEP) && defined(CONFIG_ARM_PSCI_FW)
+#ifdef CONFIG_RCAR_SMC
+#error When RCAR_SMC is enabled, must be disable CONFIG_PM_SLEEP.
+#endif
 static int cpg_mssr_suspend_noirq(struct device *dev)
 {
 	struct cpg_mssr_priv *priv = dev_get_drvdata(dev);
@@ -939,6 +978,9 @@ static int __init cpg_mssr_common_init(struct device *dev,
 	struct cpg_mssr_priv *priv;
 	unsigned int nclks, i;
 	int error;
+#ifdef CONFIG_RCAR_SMC_CPG
+	struct resource res = {0};
+#endif
 
 	if (info->init) {
 		error = info->init(dev);
@@ -960,6 +1002,14 @@ static int __init cpg_mssr_common_init(struct device *dev,
 		error = -ENOMEM;
 		goto out_err;
 	}
+
+#ifdef CONFIG_RCAR_SMC_CPG
+	if (of_address_to_resource(np, 0, &res)) {
+		priv->phybase = (uintptr_t)NULL;
+	} else {
+		priv->phybase = (uintptr_t)res.start;
+	}
+#endif
 
 	cpg_mssr_priv = priv;
 	priv->num_core_clks = info->num_total_core_clks;
