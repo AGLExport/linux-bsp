@@ -98,7 +98,7 @@ static int register_device(char *name, phys_addr_t start, size_t len)
 		goto out0;
 
 	ret = -EIO;
-	new->mtd.priv = ioremap(start, len);
+	new->mtd.priv = ioremap_cache(start, len);
 	if (!new->mtd.priv) {
 		pr_err("ioremap failed\n");
 		goto out1;
